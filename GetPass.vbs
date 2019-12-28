@@ -154,9 +154,26 @@ Function readAndRun()
 			If Len(accessKey) > 0 And errorCode = 0 Then 'Key was entered
 				Call encode()
 				
+				'create a new text file and put the password there
+				Set f = fso.OpenTextFile("clip.txt",2,True)
+				f.Write password
+				f.Close
+				
+				'read the text file and save it to the clipboard using Windows cmd
+				winCommand = "cmd /K type clip.txt | clip & exit"
+				
+				Dim oShell
+				Set oShell = WScript.CreateObject ("WScript.Shell")
+				oShell.run winCommand, 7, true
+				Set oShell = Nothing
+				
+				'delete the text file
+				fso.DeleteFile "clip.txt", true
+				
 				msgbox("Password copied to clipboard")
 				
-				outputPassword = inputbox("Your password for " & name & ": ",Title,password) 'Generate the password and output it
+				'inputbox "Password", Title, password
+				
 			ElseIf errorCode = 0 Then 'Key was not entered
 				errorCode = 2
 				Call error(errorCode)
