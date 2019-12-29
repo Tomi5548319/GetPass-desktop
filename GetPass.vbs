@@ -152,6 +152,7 @@ Function readAndRun()
 			
 			'TODO rename password to key
 			If Len(accessKey) > 0 And errorCode = 0 Then 'Key was entered
+				
 				Call encode()
 				
 				'create a new text file and put the password there
@@ -201,17 +202,16 @@ End Function
 Function encode()
 	
 	Dim i
-	
-	nameCharArray = modify(name, length)
-	keyCharArray = modify(accessKey, length)
+	nameCharArray = modify(name)
+	keyCharArray = modify(accessKey)
 	seedCharArray = Split(seed, ",")
 	
 	'nameCharArray, keyCharArray, seedCharArray = array(132, 220...)
 	
-	ReDim Preserve nameCharArray(15)
-	ReDim Preserve keyCharArray(15)
-	ReDim Preserve seedCharArray(15)
-	
+	'ReDim Preserve nameCharArray(15)
+	'ReDim Preserve keyCharArray(15)
+	'ReDim Preserve seedCharArray(15)
+
 	nameCharArray = AES_Encrypt(nameCharArray, keyCharArray)
 	nameCharArray = AES_Encrypt(nameCharArray, seedCharArray)
 	
@@ -229,34 +229,47 @@ Function encode()
 End Function
 
 
-Function modify(textStream, textLength) 'name / accessKey
+Function modify(textStream) 'name / accessKey
 	
 	charLength = Len(textStream)
 	Dim charArray()
 	Redim Preserve charArray(charLength - 1)
 	
-	For i = 0 to charLength - 1
+	For i = 0 To charLength - 1
 		charArray(i) = Asc(Mid(textStream, i + 1 ,1))
 	Next
 	
+	Dim textLength
+	textLength = length
 	textLength = modifyLength(textLength) 'length 13 => 16
+	msgbox(length)
 	
 	i = 0
-	While charLength < textLength
+	
+	For charLength = Len(textStream) To textLength-1
+		
 		ReDim Preserve charArray(charLength)	
 		charArray(charLength) = charArray(i)
 			
-		charLength = charLength + 1
 		i = i + 1
-	Wend
+	Next
 	
 	modify = charArray
 End Function
 
 
 Function modifyLength(textLength)
+
 	If textLength Mod 16 <> 0 Then
-		textLength = ((textLength / 16) + 1) * 16
+		
+		i = 0
+		While textLength Mod 16 <> 0
+			textLength = textLength-1
+			i = i + 1
+		Wend
+		
+		textLength = textLength + 16
+		
 	End If
 	
 	modifyLength = textLength
@@ -270,8 +283,12 @@ Function AES_Encrypt(c_name, c_key)
 	numberOfRounds = 9
 	
 	For j = 0 To ((UBound(c_name) + 1) / 16) - 1 'Encode 128 byte blocks
-		Dim temp(15)
-		For i = 0 To UBound(temp)
+		Dim temp
+		Dim tempNew
+		
+		ReDim temp(15)
+		
+		For i = 0 To 15
 			temp(i) = c_name(j * 16 + i)
 		Next
 		
@@ -279,21 +296,24 @@ Function AES_Encrypt(c_name, c_key)
 		expandedKey = KeyExpansion(array(c_key(j*16), c_key(j*16+1), c_key(j*16+2), c_key(j*16+3), c_key(j*16+4), c_key(j*16+5), c_key(j*16+6), c_key(j*16+7), c_key(j*16+8), c_key(j*16+9), c_key(j*16+10), c_key(j*16+11), c_key(j*16+12), c_key(j*16+13), c_key(j*16+14), c_key(j*16+15)))
 		
 		'Initial round
-		temp = AddRoundKey(temp, array(c_key(j*16), c_key(j*16+1), c_key(j*16+2), c_key(j*16+3), c_key(j*16+4), c_key(j*16+5), c_key(j*16+6), c_key(j*16+7), c_key(j*16+8), c_key(j*16+9), c_key(j*16+10), c_key(j*16+11), c_key(j*16+12), c_key(j*16+13), c_key(j*16+14), c_key(j*16+15)))
+		tempNew = AddRoundKey(temp, array(c_key(j*16), c_key(j*16+1), c_key(j*16+2), c_key(j*16+3), c_key(j*16+4), c_key(j*16+5), c_key(j*16+6), c_key(j*16+7), c_key(j*16+8), c_key(j*16+9), c_key(j*16+10), c_key(j*16+11), c_key(j*16+12), c_key(j*16+13), c_key(j*16+14), c_key(j*16+15)))
 		
 		'Rounds
 		For i = 1 To numberOfRounds
-			temp = SubBytes(temp)
-			temp = ShiftRows(temp)
-			temp = MixColumns(temp)
-			temp = AddRoundKey(temp, array(expandedKey(16*i), expandedKey(16*i+1), expandedKey(16*i+2), expandedKey(16*i+3), expandedKey(16*i+4), expandedKey(16*i+5), expandedKey(16*i+6), expandedKey(16*i+7), expandedKey(16*i+8), expandedKey(16*i+9), expandedKey(16*i+10), expandedKey(16*i+11), expandedKey(16*i+12), expandedKey(16*i+13), expandedKey(16*i+14), expandedKey(16*i+15)))
+			tempNew = SubBytes(tempNew)
+			tempNew = ShiftRows(tempNew)
+			tempNew = MixColumns(tempNew)
+			tempNew = AddRoundKey(tempNew, array(expandedKey(16*i), expandedKey(16*i+1), expandedKey(16*i+2), expandedKey(16*i+3), expandedKey(16*i+4), expandedKey(16*i+5), expandedKey(16*i+6), expandedKey(16*i+7), expandedKey(16*i+8), expandedKey(16*i+9), expandedKey(16*i+10), expandedKey(16*i+11), expandedKey(16*i+12), expandedKey(16*i+13), expandedKey(16*i+14), expandedKey(16*i+15)))
 		Next
 		
 		'Final round
-		temp = SubBytes(temp)
-		temp = ShiftRows(temp)
-		temp = AddRoundKey(temp, array(expandedKey(160), expandedKey(161), expandedKey(162), expandedKey(163), expandedKey(164), expandedKey(165), expandedKey(166), expandedKey(167), expandedKey(168), expandedKey(169), expandedKey(170), expandedKey(171), expandedKey(172), expandedKey(173), expandedKey(174), expandedKey(175)))
+		tempNew = SubBytes(tempNew)
+		tempNew = ShiftRows(tempNew)
+		tempNew = AddRoundKey(tempNew, array(expandedKey(160), expandedKey(161), expandedKey(162), expandedKey(163), expandedKey(164), expandedKey(165), expandedKey(166), expandedKey(167), expandedKey(168), expandedKey(169), expandedKey(170), expandedKey(171), expandedKey(172), expandedKey(173), expandedKey(174), expandedKey(175)))
 		
+		For i = 0 To UBound(tempNew)
+			c_name(j * 16 + i) = tempNew(i)
+		Next
 	Next
 	
 	AES_Encrypt = c_name 'return value of this function
