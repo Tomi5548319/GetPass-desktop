@@ -202,15 +202,11 @@ Function encode()
 	
 	Dim i
 	
-	nameCharArray = modify(name)
-	keyCharArray = modify(accessKey)
+	nameCharArray = modify(name, length)
+	keyCharArray = modify(accessKey, length)
 	seedCharArray = Split(seed, ",")
 	
 	'nameCharArray, keyCharArray, seedCharArray = array(132, 220...)
-	
-	If length > 16 Then
-		length = 16
-	End If
 	
 	ReDim Preserve nameCharArray(15)
 	ReDim Preserve keyCharArray(15)
@@ -233,30 +229,37 @@ Function encode()
 End Function
 
 
-Function modify(textStream) 'name / accessKey
+Function modify(textStream, textLength) 'name / accessKey
 	
-	textLen = Len(textStream)
+	charLength = Len(textStream)
 	Dim charArray()
-	Redim Preserve charArray(textLen - 1)
+	Redim Preserve charArray(charLength - 1)
 	
-	For i = 0 to textLen - 1
+	For i = 0 to charLength - 1
 		charArray(i) = Asc(Mid(textStream, i + 1 ,1))
 	Next
 	
-	If textLen <= 16 Then
-		i = 0
-		While textLen < 16
-			ReDim Preserve charArray(textLen)	
-			charArray(textLen) = charArray(i)
+	textLength = modifyLength(textLength) 'length 13 => 16
+	
+	i = 0
+	While charLength < textLength
+		ReDim Preserve charArray(charLength)	
+		charArray(charLength) = charArray(i)
 			
-			textLen = textLen + 1
-			i = i + 1
-		Wend
-	Else
-		ReDim Preserve charArray(15)
-	End If
+		charLength = charLength + 1
+		i = i + 1
+	Wend
 	
 	modify = charArray
+End Function
+
+
+Function modifyLength(textLength)
+	If textLength Mod 16 <> 0 Then
+		textLength = ((textLength / 16) + 1) * 16
+	End If
+	
+	modifyLength = textLength
 End Function
 
 
@@ -266,26 +269,32 @@ Function AES_Encrypt(c_name, c_key)
 	
 	numberOfRounds = 9
 	
-	'Expand the keys
-	expandedKey = KeyExpansion(c_key)
-	
-	'Initial round
-	c_name = AddRoundKey(c_name, c_key)
-	
-	
-	'Rounds
-	For i = 1 To numberOfRounds
-		c_name = SubBytes(c_name)
-		c_name = ShiftRows(c_name)
-		c_name = MixColumns(c_name)
-		c_name = AddRoundKey(c_name, array(expandedKey(16*i), expandedKey(16*i+1), expandedKey(16*i+2), expandedKey(16*i+3), expandedKey(16*i+4), expandedKey(16*i+5), expandedKey(16*i+6), expandedKey(16*i+7), expandedKey(16*i+8), expandedKey(16*i+9), expandedKey(16*i+10), expandedKey(16*i+11), expandedKey(16*i+12), expandedKey(16*i+13), expandedKey(16*i+14), expandedKey(16*i+15)))
+	For j = 0 To ((UBound(c_name) + 1) / 16) - 1 'Encode 128 byte blocks
+		Dim temp(15)
+		For i = 0 To UBound(temp)
+			temp(i) = c_name(j * 16 + i)
+		Next
+		
+		'Expand the keys
+		expandedKey = KeyExpansion(array(c_key(j*16), c_key(j*16+1), c_key(j*16+2), c_key(j*16+3), c_key(j*16+4), c_key(j*16+5), c_key(j*16+6), c_key(j*16+7), c_key(j*16+8), c_key(j*16+9), c_key(j*16+10), c_key(j*16+11), c_key(j*16+12), c_key(j*16+13), c_key(j*16+14), c_key(j*16+15)))
+		
+		'Initial round
+		temp = AddRoundKey(temp, array(c_key(j*16), c_key(j*16+1), c_key(j*16+2), c_key(j*16+3), c_key(j*16+4), c_key(j*16+5), c_key(j*16+6), c_key(j*16+7), c_key(j*16+8), c_key(j*16+9), c_key(j*16+10), c_key(j*16+11), c_key(j*16+12), c_key(j*16+13), c_key(j*16+14), c_key(j*16+15)))
+		
+		'Rounds
+		For i = 1 To numberOfRounds
+			temp = SubBytes(temp)
+			temp = ShiftRows(temp)
+			temp = MixColumns(temp)
+			temp = AddRoundKey(temp, array(expandedKey(16*i), expandedKey(16*i+1), expandedKey(16*i+2), expandedKey(16*i+3), expandedKey(16*i+4), expandedKey(16*i+5), expandedKey(16*i+6), expandedKey(16*i+7), expandedKey(16*i+8), expandedKey(16*i+9), expandedKey(16*i+10), expandedKey(16*i+11), expandedKey(16*i+12), expandedKey(16*i+13), expandedKey(16*i+14), expandedKey(16*i+15)))
+		Next
+		
+		'Final round
+		temp = SubBytes(temp)
+		temp = ShiftRows(temp)
+		temp = AddRoundKey(temp, array(expandedKey(160), expandedKey(161), expandedKey(162), expandedKey(163), expandedKey(164), expandedKey(165), expandedKey(166), expandedKey(167), expandedKey(168), expandedKey(169), expandedKey(170), expandedKey(171), expandedKey(172), expandedKey(173), expandedKey(174), expandedKey(175)))
+		
 	Next
-	
-	'Final round
-	c_name = SubBytes(c_name)
-	c_name = ShiftRows(c_name)
-	c_name = AddRoundKey(c_name, array(expandedKey(160), expandedKey(161), expandedKey(162), expandedKey(163), expandedKey(164), expandedKey(165), expandedKey(166), expandedKey(167), expandedKey(168), expandedKey(169), expandedKey(170), expandedKey(171), expandedKey(172), expandedKey(173), expandedKey(174), expandedKey(175)))
-	
 	
 	AES_Encrypt = c_name 'return value of this function
 End Function
